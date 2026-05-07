@@ -1,0 +1,1787 @@
+
+<!DOCTYPE html>
+<html lang="hu">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=yes">
+<title>Mira – AI Asszisztens</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;600;700&family=Crimson+Pro:ital,wght@0,300;0,400;1,300;1,400&display=swap" rel="stylesheet">
+<style>
+  /* (stílusok változatlanok, kihagyva a rövidség kedvéért) */
+  :root {
+    --bg:        #0a0806;
+    --bg2:       #110e0a;
+    --bg3:       #1a1510;
+    --border:    #3a2e1e;
+    --border2:   #4d3d24;
+    --gold:      #c9a84c;
+    --gold2:     #e8c97a;
+    --gold-dim:  #7a6030;
+    --text:      #e8dcc8;
+    --text2:     #a89878;
+    --text3:     #6b5a40;
+    --user-bg:   #1e1508;
+    --ai-bg:     #0f0c08;
+    --red:       #c0392b;
+    --green:     #4ade80;
+    --mono:      'Crimson Pro', Georgia, serif;
+    --display:   'Cinzel', serif;
+  }
+
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+
+  body {
+    background: var(--bg);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 16px;
+    line-height: 1.7;
+    height: 100dvh;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+    position: relative;
+  }
+
+  body::before {
+    content: '';
+    position: fixed;
+    inset: 0;
+    background-image:
+      radial-gradient(ellipse at 20% 20%, rgba(201,168,76,0.04) 0%, transparent 60%),
+      radial-gradient(ellipse at 80% 80%, rgba(201,168,76,0.03) 0%, transparent 60%),
+      url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='400' height='400'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.65' numOctaves='3' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='400' height='400' filter='url(%23n)' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
+
+  body::after {
+    content: '';
+    position: fixed;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, transparent, var(--gold-dim), var(--gold), var(--gold-dim), transparent);
+    z-index: 10;
+  }
+
+  header {
+    position: relative;
+    z-index: 5;
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 16px;
+    background: linear-gradient(180deg, #1a1208 0%, var(--bg2) 100%);
+    border-bottom: 1px solid var(--border);
+    flex-shrink: 0;
+  }
+
+  .header-title { display: flex; align-items: center; gap: 10px; }
+
+  .mira-sigil { width: 36px; height: 36px; position: relative; }
+  .mira-sigil svg { width: 100%; height: 100%; animation: sigilRotate 20s linear infinite; }
+  @keyframes sigilRotate { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+
+  .header-name {
+    font-family: var(--display);
+    font-size: 22px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--gold);
+    text-shadow: 0 0 20px rgba(201,168,76,0.4);
+  }
+
+  .header-sub {
+    font-family: var(--mono);
+    font-size: 10px;
+    color: var(--text3);
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    margin-top: -2px;
+  }
+
+  .model-wrap { position: relative; }
+
+  #model-btn {
+    background: var(--bg3);
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--mono);
+    font-size: 11px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    cursor: pointer;
+    letter-spacing: 0.05em;
+    transition: border-color 0.2s, color 0.2s;
+    max-width: 220px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  #model-btn:hover { border-color: var(--gold-dim); color: var(--gold); }
+
+  #model-dropdown {
+    display: none;
+    position: fixed;
+    right: 8px;
+    top: 60px;
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 6px;
+    width: min(360px, calc(100vw - 16px));
+    max-height: 60vh;
+    z-index: 300;
+    overflow-y: auto;
+    overflow-x: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.8);
+    -webkit-overflow-scrolling: touch;
+  }
+  #model-dropdown.open { display: block; }
+
+  .model-group-label {
+    padding: 7px 14px 4px;
+    font-family: var(--display);
+    font-size: 8px;
+    letter-spacing: 0.25em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    border-bottom: 1px solid var(--border);
+    background: rgba(201,168,76,0.04);
+  }
+
+  .model-opt {
+    padding: 9px 14px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text2);
+    cursor: pointer;
+    border-bottom: 1px solid var(--border);
+    transition: background 0.15s, color 0.15s;
+    letter-spacing: 0.03em;
+  }
+  .model-opt:last-child { border-bottom: none; }
+  .model-opt:hover { background: var(--bg3); color: var(--gold); }
+  .model-opt.selected { color: var(--gold); background: rgba(201,168,76,0.06); }
+
+  .model-opt-sub {
+    font-size: 10px;
+    color: var(--text3);
+    margin-top: 1px;
+  }
+
+  .model-add-btn {
+    width: 100%;
+    padding: 9px 14px;
+    background: none;
+    border: none;
+    border-top: 1px solid var(--border2);
+    color: var(--gold-dim);
+    font-family: var(--mono);
+    font-size: 11px;
+    cursor: pointer;
+    text-align: left;
+    letter-spacing: 0.05em;
+    transition: color 0.15s, background 0.15s;
+  }
+  .model-add-btn:hover { color: var(--gold); background: rgba(201,168,76,0.05); }
+
+  #modal-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.7);
+    z-index: 500;
+    align-items: center;
+    justify-content: center;
+  }
+  #modal-overlay.open { display: flex; }
+
+  #modal-box {
+    background: var(--bg2);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    padding: 24px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 16px 48px rgba(0,0,0,0.8);
+  }
+
+  #modal-box h3 {
+    font-family: var(--display);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: var(--gold);
+    text-transform: uppercase;
+    margin-bottom: 18px;
+  }
+
+  .modal-field { margin-bottom: 14px; }
+  .modal-field label {
+    display: block;
+    font-family: var(--display);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    margin-bottom: 5px;
+  }
+  .modal-field input, .modal-field select, .modal-field textarea {
+    width: 100%;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 7px 10px;
+    border-radius: 4px;
+    outline: none;
+  }
+  .modal-field input:focus, .modal-field select:focus, .modal-field textarea:focus {
+    border-color: var(--gold-dim);
+  }
+  .modal-field select option { background: #1a1510; }
+  .modal-field textarea { resize: vertical; min-height: 60px; }
+
+  .modal-hint {
+    font-size: 11px;
+    color: var(--text3);
+    margin-top: 4px;
+    font-style: italic;
+  }
+
+  .modal-btns {
+    display: flex;
+    gap: 8px;
+    justify-content: flex-end;
+    margin-top: 20px;
+  }
+  .modal-btns button {
+    font-family: var(--display);
+    font-size: 10px;
+    letter-spacing: 0.12em;
+    padding: 8px 16px;
+    border-radius: 4px;
+    cursor: pointer;
+    text-transform: uppercase;
+  }
+  #modal-cancel {
+    background: none;
+    border: 1px solid var(--border2);
+    color: var(--text3);
+  }
+  #modal-cancel:hover { color: var(--text); border-color: var(--text3); }
+  #modal-save {
+    background: rgba(201,168,76,0.1);
+    border: 1px solid var(--gold-dim);
+    color: var(--gold);
+  }
+  #modal-save:hover { background: rgba(201,168,76,0.2); }
+
+  #api-banner {
+    background: linear-gradient(90deg, #1a0e00, #221500, #1a0e00);
+    border-bottom: 1px solid var(--border2);
+    padding: 10px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 4;
+  }
+  #api-banner.hidden { display: none; }
+  #api-banner span {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--gold);
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+  }
+  #api-key-inp {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    outline: none;
+  }
+  #api-key-inp:focus { border-color: var(--gold-dim); }
+
+  #tavily-banner {
+    background: linear-gradient(90deg, #001a0e, #002211, #001a0e);
+    border-bottom: 1px solid var(--border2);
+    padding: 8px 16px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 4;
+  }
+  #tavily-banner.hidden { display: none; }
+  #tavily-banner span {
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--green);
+    letter-spacing: 0.08em;
+    flex-shrink: 0;
+  }
+  #tavily-key-inp {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border2);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 12px;
+    padding: 5px 10px;
+    border-radius: 4px;
+    outline: none;
+  }
+  #tavily-key-inp:focus { border-color: var(--green); }
+
+  #sys-panel {
+    background: var(--bg2);
+    border-bottom: 1px solid var(--border);
+    padding: 10px 14px;
+    flex-shrink: 0;
+    display: none;
+    position: relative;
+    z-index: 3;
+  }
+  #sys-panel.open { display: block; }
+  #sys-panel label {
+    font-family: var(--display);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    color: var(--gold-dim);
+    text-transform: uppercase;
+    display: block;
+    margin-bottom: 6px;
+  }
+  #sys-input {
+    width: 100%;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 13px;
+    padding: 8px 10px;
+    border-radius: 4px;
+    resize: none;
+    outline: none;
+    line-height: 1.5;
+  }
+  #sys-input:focus { border-color: var(--gold-dim); }
+
+  #chat {
+    flex: 1;
+    overflow-y: auto;
+    padding: 20px 12px;
+    position: relative;
+    z-index: 1;
+    scroll-behavior: smooth;
+  }
+  #chat::-webkit-scrollbar { width: 4px; }
+  #chat::-webkit-scrollbar-track { background: transparent; }
+  #chat::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 2px; }
+
+  #empty-state {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    gap: 16px;
+    animation: fadeIn 1s ease;
+  }
+  @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+  .empty-sigil { width: 80px; height: 80px; opacity: 0.4; }
+  .empty-text {
+    font-family: var(--display);
+    font-size: 13px;
+    letter-spacing: 0.2em;
+    color: var(--text3);
+    text-align: center;
+    text-transform: uppercase;
+  }
+
+  .msg-wrap { margin-bottom: 20px; animation: msgIn 0.3s ease; }
+  @keyframes msgIn { from { opacity: 0; transform: translateY(6px); } to { opacity: 1; transform: translateY(0); } }
+
+  .msg-meta {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    margin-bottom: 6px;
+    padding: 0 4px;
+  }
+
+  .role {
+    font-family: var(--display);
+    font-size: 9px;
+    letter-spacing: 0.2em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border-radius: 2px;
+  }
+  .role.user { color: var(--gold-dim); border: 1px solid var(--border); background: rgba(201,168,76,0.05); }
+  .role.ai { color: var(--gold); border: 1px solid var(--gold-dim); background: rgba(201,168,76,0.08); text-shadow: 0 0 8px rgba(201,168,76,0.3); }
+
+  .msg-ts { font-size: 10px; color: var(--text3); font-family: var(--mono); }
+
+  .bubble {
+    padding: 12px 16px;
+    border-radius: 4px;
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.75;
+    white-space: pre-wrap;
+    word-break: break-word;
+  }
+  .bubble.user { background: var(--user-bg); border: 1px solid var(--border); border-left: 3px solid var(--border2); color: var(--text2); }
+  .bubble.ai { background: var(--ai-bg); border: 1px solid rgba(201,168,76,0.12); border-left: 3px solid var(--gold-dim); color: var(--text); }
+  .bubble.ai.cursor::after { content: '▋'; color: var(--gold); animation: blink 0.8s step-end infinite; display: inline-block; vertical-align: bottom; }
+  @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0} }
+
+  .msg-image { max-width: 240px; max-height: 180px; border-radius: 4px; border: 1px solid var(--border2); margin-bottom: 8px; display: block; }
+
+  .thinking-block {
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--border);
+    border-left: 2px solid var(--text3);
+    border-radius: 4px;
+    padding: 10px 14px;
+    margin-bottom: 8px;
+    font-family: var(--mono);
+    font-size: 12px;
+    color: var(--text3);
+    font-style: italic;
+    white-space: pre-wrap;
+  }
+  .thinking-label {
+    font-family: var(--display);
+    font-size: 8px;
+    letter-spacing: 0.2em;
+    color: var(--text3);
+    text-transform: uppercase;
+    margin-bottom: 6px;
+  }
+
+  #img-preview-row {
+    display: none;
+    padding: 6px 14px;
+    gap: 8px;
+    align-items: center;
+    background: var(--bg2);
+    border-top: 1px solid var(--border);
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+  }
+  #img-preview { height: 52px; border-radius: 4px; border: 1px solid var(--border2); }
+  #img-preview-row button { background: none; border: none; color: var(--text3); font-size: 16px; cursor: pointer; padding: 4px; }
+  #img-preview-row button:hover { color: var(--red); }
+
+  #error-panel {
+    display: none;
+    background: #1a0505;
+    border-top: 1px solid #5a1a1a;
+    padding: 8px 14px;
+    font-family: var(--mono);
+    font-size: 11px;
+    color: #f87171;
+    align-items: flex-start;
+    gap: 10px;
+    flex-shrink: 0;
+    max-height: 80px;
+    overflow-y: auto;
+    word-break: break-all;
+    position: relative;
+    z-index: 2;
+  }
+  #error-panel.visible { display: flex; }
+  #error-panel .err-text { flex: 1; white-space: pre-wrap; }
+  #error-panel button {
+    background: #3a1010;
+    border: 1px solid #5a2020;
+    color: #f87171;
+    padding: 3px 8px;
+    border-radius: 3px;
+    font-family: var(--mono);
+    font-size: 10px;
+    cursor: pointer;
+    white-space: nowrap;
+    flex-shrink: 0;
+  }
+
+  footer {
+    background: linear-gradient(0deg, #0f0c08 0%, var(--bg2) 100%);
+    border-top: 1px solid var(--border);
+    padding: 10px 12px 8px;
+    flex-shrink: 0;
+    position: relative;
+    z-index: 2;
+  }
+
+  .input-row { display: flex; gap: 6px; align-items: flex-end; margin-bottom: 8px; }
+
+  #user-input {
+    flex: 1;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--border);
+    color: var(--text);
+    font-family: var(--mono);
+    font-size: 15px;
+    line-height: 1.5;
+    padding: 9px 12px;
+    border-radius: 4px;
+    resize: none;
+    outline: none;
+    max-height: 120px;
+    overflow-y: auto;
+    transition: border-color 0.2s;
+  }
+  #user-input:focus { border-color: var(--gold-dim); }
+  #user-input::placeholder { color: var(--text3); font-style: italic; }
+
+  .btn {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text2);
+    font-family: var(--mono);
+    cursor: pointer;
+    border-radius: 4px;
+    transition: all 0.2s;
+    flex-shrink: 0;
+  }
+  .btn-send {
+    font-family: var(--display);
+    font-size: 10px;
+    letter-spacing: 0.15em;
+    padding: 9px 14px;
+    color: var(--gold-dim);
+    border-color: var(--border2);
+  }
+  .btn-send:hover { background: rgba(201,168,76,0.1); color: var(--gold); border-color: var(--gold-dim); }
+  .btn-send:disabled { opacity: 0.3; cursor: not-allowed; }
+
+  .btn-icon {
+    width: 36px;
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 16px;
+  }
+  .btn-icon:hover { background: rgba(255,255,255,0.05); border-color: var(--border2); }
+
+  #tts-stop-btn { animation: goldPulse 1s infinite; border-color: var(--gold-dim) !important; color: var(--gold) !important; display: none; }
+  #runpod-stop-btn {
+    display: none; align-items: center; gap: 5px;
+    background: rgba(192,57,43,0.15); border: 1px solid #c0392b;
+    color: #e74c3c; font-family: var(--display); font-size: 9px;
+    letter-spacing: 0.12em; padding: 5px 10px; border-radius: 4px;
+    cursor: pointer; text-transform: uppercase; flex-shrink: 0;
+    animation: redPulse 1.5s ease-in-out infinite;
+  }
+  #runpod-stop-btn.visible { display: flex; }
+  @keyframes redPulse { 0%,100%{box-shadow:0 0 0 0 rgba(192,57,43,0.4)} 50%{box-shadow:0 0 0 6px rgba(192,57,43,0)} }
+  .runpod-dot { width:7px;height:7px;border-radius:50%;background:#e74c3c;flex-shrink:0; }
+  @keyframes goldPulse { 0%,100%{opacity:1} 50%{opacity:0.4} }
+
+  .footer-toggles {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 10px;
+    align-items: center;
+  }
+
+  .toggle-wrap { display: flex; align-items: center; gap: 5px; cursor: pointer; user-select: none; }
+  .toggle-wrap input[type=checkbox] {
+    appearance: none;
+    width: 28px; height: 15px;
+    background: var(--bg3);
+    border: 1px solid var(--border2);
+    border-radius: 8px;
+    position: relative;
+    cursor: pointer;
+    transition: background 0.2s;
+    flex-shrink: 0;
+  }
+  .toggle-wrap input[type=checkbox]::after {
+    content: '';
+    position: absolute;
+    width: 11px; height: 11px;
+    border-radius: 50%;
+    background: var(--text3);
+    top: 1px; left: 1px;
+    transition: left 0.2s, background 0.2s;
+  }
+  .toggle-wrap input[type=checkbox]:checked { background: rgba(201,168,76,0.15); border-color: var(--gold-dim); }
+  .toggle-wrap input[type=checkbox]:checked::after { left: 14px; background: var(--gold); }
+
+  .toggle-label { font-family: var(--mono); font-size: 11px; color: var(--text3); letter-spacing: 0.05em; }
+
+  .footer-right { display: flex; align-items: center; gap: 8px; margin-left: auto; }
+
+  #save-status { font-family: var(--mono); font-size: 10px; color: var(--text3); }
+  #save-status.err { color: #f87171; }
+  #token-count { font-family: var(--mono); font-size: 10px; color: var(--text3); letter-spacing: 0.05em; }
+
+  #autosave-dot {
+    width: 6px; height: 6px;
+    border-radius: 50%;
+    background: var(--text3);
+    transition: background 0.3s;
+    flex-shrink: 0;
+  }
+  #autosave-dot.saved { background: var(--green); }
+  #autosave-dot.saving { background: var(--gold); animation: goldPulse 0.6s infinite; }
+
+  #sys-toggle-btn { font-size: 13px; width: 28px; height: 28px; padding: 0; }
+
+  .export-bar {
+    display: flex;
+    gap: 6px;
+    align-items: center;
+    flex-shrink: 0;
+  }
+  .btn-small {
+    font-family: var(--display);
+    font-size: 9px;
+    letter-spacing: 0.1em;
+    padding: 4px 9px;
+    border-radius: 3px;
+    border: 1px solid var(--border2);
+    color: var(--text3);
+    background: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    white-space: nowrap;
+  }
+  .btn-small:hover { color: var(--gold); border-color: var(--gold-dim); background: rgba(201,168,76,0.06); }
+  .btn-small.import { color: #60a5fa; border-color: #1e3a5f; }
+  .btn-small.import:hover { background: rgba(96,165,250,0.06); border-color: #60a5fa; }
+
+  /* Mobil optimalizáció */
+  @media (max-width: 600px) {
+    .footer-toggles { gap: 6px; }
+    .toggle-label { font-size: 9px; }
+    .btn-small { font-size: 8px; padding: 3px 7px; }
+    .model-wrap #model-btn { font-size: 9px; max-width: 150px; }
+    .export-bar { gap: 3px; }
+  }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<header>
+  <div class="header-title">
+    <div class="mira-sigil">
+      <svg viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="50" cy="50" r="44" stroke="#c9a84c" stroke-width="1" stroke-dasharray="4 3" opacity="0.5"/>
+        <circle cx="50" cy="50" r="32" stroke="#c9a84c" stroke-width="0.5" opacity="0.3"/>
+        <polygon points="50,10 88,72 12,72" stroke="#c9a84c" stroke-width="1" fill="none" opacity="0.6"/>
+        <polygon points="50,90 12,28 88,28" stroke="#c9a84c" stroke-width="1" fill="none" opacity="0.4"/>
+        <circle cx="50" cy="50" r="5" fill="#c9a84c" opacity="0.8"/>
+        <circle cx="50" cy="10" r="2.5" fill="#c9a84c" opacity="0.6"/>
+        <circle cx="88" cy="72" r="2.5" fill="#c9a84c" opacity="0.6"/>
+        <circle cx="12" cy="72" r="2.5" fill="#c9a84c" opacity="0.6"/>
+      </svg>
+    </div>
+    <div>
+      <div class="header-name">MIRA</div>
+      <div class="header-sub" id="header-sub">AI Asszisztens</div>
+    </div>
+  </div>
+
+  <div style="display:flex;gap:8px;align-items:center">
+    <div class="export-bar">
+      <button class="btn-small" id="export-btn">💾 Export</button>
+      <button class="btn-small import" id="import-btn">📂 Import</button>
+      <input type="file" id="import-input" accept=".json" style="display:none">
+      <button class="btn-small" id="debug-btn" style="color:#f87171;border-color:#c0392b;">🔍 Debug</button>
+      <button class="btn-small" id="test-btn" style="color:#4ade80;border-color:#166534;">⚡ Teszt</button>
+    </div>
+    <button class="btn btn-icon" id="apikey-show-btn" title="API Kulcs" style="font-size:13px;width:28px;height:28px;padding:0;">🔑</button>
+    <button class="btn btn-icon" id="sys-toggle-btn" title="Rendszer prompt">⚙</button>
+    <div class="model-wrap">
+      <button id="model-btn">Modell ▾</button>
+      <div id="model-dropdown">
+        <div class="model-group-label">✦ Google AI Studio</div>
+        <div class="model-opt" data-model="gemma-4-26b-a4b-it" data-api="google" data-key-id="google">
+          gemma-4-26b-a4b-it
+          <div class="model-opt-sub">26B MoE · Multimodális</div>
+        </div>
+        <div class="model-opt" data-model="gemma-4-31b-it" data-api="google" data-key-id="google">
+          gemma-4-31b-it
+          <div class="model-opt-sub">31B Dense · Legerősebb</div>
+        </div>
+        <div class="model-opt" data-model="gemma-4-e4b-it" data-api="google" data-key-id="google">
+          gemma-4-e4b-it
+          <div class="model-opt-sub">4B · Gyors, kis méret</div>
+        </div>
+        <div class="model-opt" data-model="gemma-3-27b-it" data-api="google" data-key-id="google">
+          gemma-3-27b-it
+          <div class="model-opt-sub">27B · Gemma 3</div>
+        </div>
+        <div class="model-group-label" id="custom-group-label" style="display:none">✦ Saját / Felhős Modellek</div>
+        <div id="custom-models-container"></div>
+        <button class="model-add-btn" id="add-model-btn">＋ Egyedi modell hozzáadása…</button>
+      </div>
+    </div>
+  </div>
+</header>
+
+<div id="modal-overlay">
+  <div id="modal-box">
+    <h3>✦ Egyedi modell hozzáadása</h3>
+
+    <div class="modal-field">
+      <label>Megjelenítési név</label>
+      <input type="text" id="m-name" placeholder="pl. Llama 3.1 70B (RunPod)">
+    </div>
+
+    <div class="modal-field">
+      <label>API típus</label>
+      <select id="m-api-type">
+        <option value="openai">OpenAI-kompatibilis (RunPod, vLLM, Ollama, HF…)</option>
+        <option value="google">Google AI Studio</option>
+      </select>
+      <div class="modal-hint" id="m-api-hint">Minden modell, amelyik /v1/chat/completions végpontot használ.</div>
+    </div>
+
+    <div class="modal-field" id="m-url-field">
+      <label>API Végpont URL</label>
+      <input type="text" id="m-url" placeholder="https://api.runpod.ai/v2/XXXXXXX/openai/v1">
+      <div class="modal-hint">A teljes alap URL, /v1/chat/completions nélkül.</div>
+    </div>
+
+    <div class="modal-field">
+      <label>Modell azonosító (model ID)</label>
+      <input type="text" id="m-model-id" placeholder="pl. meta-llama/Llama-3.1-70B-Instruct">
+    </div>
+
+    <div class="modal-field">
+      <label>API Kulcs (opcionális, ha más mint az alap)</label>
+      <input type="password" id="m-api-key" placeholder="Ha üresen hagyod, az alap API kulcsot használja">
+    </div>
+
+    <div class="modal-field">
+      <label>Leírás (opcionális)</label>
+      <input type="text" id="m-desc" placeholder="pl. Fine-tuned Llama, RunPod GPU">
+    </div>
+
+    <div class="modal-btns">
+      <button id="modal-cancel">Mégse</button>
+      <button id="modal-save">✦ Hozzáadás</button>
+    </div>
+  </div>
+</div>
+
+<div id="api-banner">
+  <span>✦ Google API Kulcs:</span>
+  <input type="password" id="api-key-inp" placeholder="Google AI Studio API kulcs (AIza...)">
+  <button class="btn btn-send" id="save-apikey-btn" style="padding:5px 12px;">Mentés</button>
+</div>
+
+<div id="tavily-banner">
+  <span>🔍 Tavily:</span>
+  <input type="password" id="tavily-key-inp" placeholder="Tavily API kulcs (tvly-...)">
+  <button class="btn btn-send" id="save-tavily-btn" style="padding:5px 12px;">Mentés</button>
+  <button class="btn btn-send" id="close-tavily-btn" style="padding:5px 10px;color:var(--text3);">✕</button>
+</div>
+
+<div id="sys-panel">
+  <label>✦ Rendszer Prompt</label>
+  <textarea id="sys-input" rows="4" placeholder="Te vagy Mira, egy bölcs és intelligens asszisztens..."></textarea>
+</div>
+
+<div id="img-preview-row">
+  <img id="img-preview" alt="Csatolt kép">
+  <button id="clear-img-btn">✕</button>
+</div>
+
+<div id="error-panel">
+  <span class="err-text" id="error-text"></span>
+  <button id="copy-error-btn">📋</button>
+  <button id="close-error-btn">✕</button>
+</div>
+
+<div id="chat">
+  <div id="empty-state">
+    <svg class="empty-sigil" viewBox="0 0 100 100" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <circle cx="50" cy="50" r="44" stroke="#c9a84c" stroke-width="0.5" stroke-dasharray="3 4" opacity="0.3"/>
+      <polygon points="50,10 88,72 12,72" stroke="#c9a84c" stroke-width="0.5" fill="none" opacity="0.3"/>
+      <polygon points="50,90 12,28 88,28" stroke="#c9a84c" stroke-width="0.5" fill="none" opacity="0.2"/>
+      <circle cx="50" cy="50" r="4" fill="#c9a84c" opacity="0.3"/>
+    </svg>
+    <div class="empty-text">Mira várja kérdésedet</div>
+  </div>
+</div>
+
+<footer>
+  <div class="input-row">
+    <button class="btn btn-icon" id="attach-img-btn">📎</button>
+    <input type="file" id="img-input" accept="image/*" style="display:none">
+    <textarea id="user-input" rows="1" placeholder="Írj Mirának… (Enter = küldés, Shift+Enter = sortörés)"></textarea>
+    <button class="btn btn-send" id="send-btn">KÜLD</button>
+    <button id="runpod-stop-btn" title="Generálás leállítása"><span class="runpod-dot"></span>STOP</button>
+    <button class="btn btn-icon" id="tts-stop-btn" title="Felolvasás leállítása">⏹</button>
+    <button class="btn btn-icon" id="clear-chat-btn">🗑</button>
+  </div>
+  <div class="footer-toggles">
+    <label class="toggle-wrap">
+      <input type="checkbox" id="thinking-toggle">
+      <span class="toggle-label">thinking</span>
+    </label>
+    <label class="toggle-wrap">
+      <input type="checkbox" id="show-thinking-toggle">
+      <span class="toggle-label">gondolkodás mutatása</span>
+    </label>
+    <label class="toggle-wrap">
+      <input type="checkbox" id="tts-toggle">
+      <span class="toggle-label">🔊 felolvasás</span>
+    </label>
+    <label class="toggle-wrap">
+      <input type="checkbox" id="websearch-toggle">
+      <span class="toggle-label">🌐 web keresés</span>
+    </label>
+    <button class="btn-small" id="tavily-toggle-btn">🔍 Tavily kulcs</button>
+    <div class="footer-right">
+      <div id="autosave-dot" title="Automatikus mentés állapota"></div>
+      <span id="token-count"></span>
+      <span id="save-status"></span>
+    </div>
+  </div>
+</footer>
+
+<script>
+// ════════════════════════════════════════════════════════
+// KONSTANSOK & ÁLLAPOT
+// ════════════════════════════════════════════════════════
+const API_KEY_KEY     = 'mira_apikey';
+const SYS_KEY         = 'mira_sysprompt';
+const HIST_KEY        = 'mira_history';
+const MODEL_KEY       = 'mira_model';
+const CUSTOM_MODELS_KEY = 'mira_custom_models';
+const TAVILY_KEY      = 'mira_tavily';
+
+const GOOGLE_API_BASE = 'https://generativelanguage.googleapis.com/v1beta/models/';
+
+let currentModelConfig = null;
+let chatHistory   = [];
+let isGenerating  = false;
+let abortCtrl = null;
+let autosaveTimer = null;
+let pendingImageB64  = null;
+let pendingImageMime = null;
+
+// ════════════════════════════════════════════════════════
+// EGYEDI MODELLEK KEZELÉSE
+// ════════════════════════════════════════════════════════
+function getCustomModels() {
+  try { return JSON.parse(localStorage.getItem(CUSTOM_MODELS_KEY) || '[]'); } catch { return []; }
+}
+
+function saveCustomModels(models) {
+  localStorage.setItem(CUSTOM_MODELS_KEY, JSON.stringify(models));
+}
+
+function renderCustomModels() {
+  const models = getCustomModels();
+  const container = document.getElementById('custom-models-container');
+  const label = document.getElementById('custom-group-label');
+  container.innerHTML = '';
+  label.style.display = models.length ? '' : 'none';
+
+  models.forEach((m, idx) => {
+    const div = document.createElement('div');
+    div.className = 'model-opt';
+    div.dataset.model = m.modelId;
+    div.dataset.api = m.api;
+    div.dataset.url = m.url || '';
+    div.dataset.keyId = m.keyId || '';
+    div.dataset.customIdx = idx;
+    div.innerHTML = `
+      ${escapeHtml(m.name)}
+      <div class="model-opt-sub">${escapeHtml(m.desc || m.api + (m.url ? ' · ' + m.url.replace(/^https?:\/\//, '').slice(0,30) : ''))}
+        <span style="float:right;color:var(--red);cursor:pointer;padding:0 4px;" class="delete-custom-model" data-idx="${idx}">✕</span>
+      </div>`;
+    container.appendChild(div);
+  });
+
+  // Törlés események a dinamikus elemeken
+  document.querySelectorAll('.delete-custom-model').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const idx = parseInt(btn.dataset.idx);
+      deleteCustomModel(idx);
+    });
+  });
+
+  // Modell kiválasztás események
+  container.querySelectorAll('.model-opt').forEach(el => {
+    el.addEventListener('click', (e) => {
+      if (e.target.classList.contains('delete-custom-model')) return;
+      selectModel(el);
+      closeDropdown();
+    });
+    el.addEventListener('touchstart', (e) => {
+      if (e.target.classList.contains('delete-custom-model')) return;
+      e.preventDefault();
+      selectModel(el);
+      closeDropdown();
+    }, { passive: false });
+  });
+}
+
+function deleteCustomModel(idx) {
+  const models = getCustomModels();
+  models.splice(idx, 1);
+  saveCustomModels(models);
+  renderCustomModels();
+  if (currentModelConfig && currentModelConfig.customIdx === idx) {
+    const first = document.querySelector('.model-opt[data-api="google"]');
+    if (first) selectModel(first);
+  }
+}
+
+function openAddModelModal() {
+  document.getElementById('m-name').value = '';
+  document.getElementById('m-model-id').value = '';
+  document.getElementById('m-url').value = '';
+  document.getElementById('m-api-key').value = '';
+  document.getElementById('m-desc').value = '';
+  document.getElementById('m-api-type').value = 'openai';
+  onApiTypeChange();
+  document.getElementById('modal-overlay').classList.add('open');
+  closeDropdown();
+}
+
+function closeAddModelModal() {
+  document.getElementById('modal-overlay').classList.remove('open');
+}
+
+function onApiTypeChange() {
+  const type = document.getElementById('m-api-type').value;
+  const urlField = document.getElementById('m-url-field');
+  const hint = document.getElementById('m-api-hint');
+  if (type === 'google') {
+    urlField.style.display = 'none';
+    hint.textContent = 'Google AI Studio standard végpont – csak modell ID kell.';
+  } else {
+    urlField.style.display = '';
+    hint.textContent = 'Minden modell, amelyik /v1/chat/completions végpontot használ.';
+  }
+}
+
+function saveCustomModel() {
+  const name    = document.getElementById('m-name').value.trim();
+  const modelId = document.getElementById('m-model-id').value.trim();
+  const api     = document.getElementById('m-api-type').value;
+  const url     = document.getElementById('m-url').value.trim();
+  const apiKey  = document.getElementById('m-api-key').value.trim();
+  const desc    = document.getElementById('m-desc').value.trim();
+
+  if (!name || !modelId) { alert('A név és a modell ID kötelező!'); return; }
+  if (api === 'openai' && !url) { alert('OpenAI-kompatibilis modellnél az URL kötelező!'); return; }
+
+  const keyId = apiKey ? 'custom_' + Date.now() : 'google';
+  if (apiKey) localStorage.setItem('mira_key_' + keyId, apiKey);
+
+  const models = getCustomModels();
+  models.push({ name, modelId, api, url, keyId, desc });
+  saveCustomModels(models);
+  renderCustomModels();
+  closeAddModelModal();
+
+  setTimeout(() => {
+    const opts = document.querySelectorAll('#custom-models-container .model-opt');
+    if (opts.length) selectModel(opts[opts.length - 1]);
+  }, 50);
+}
+
+// ════════════════════════════════════════════════════════
+// MODELL KIVÁLASZTÁS
+// ════════════════════════════════════════════════════════
+function selectModel(el) {
+  document.querySelectorAll('.model-opt').forEach(o => o.classList.remove('selected'));
+  el.classList.add('selected');
+
+  const api = el.dataset.api || 'google';
+  const modelId = el.dataset.model;
+
+  currentModelConfig = {
+    id:     modelId,
+    api:    api,
+    url:    el.dataset.url || '',
+    keyId:  el.dataset.keyId || 'google',
+    name:   el.childNodes[0]?.textContent?.trim() || modelId,
+  };
+
+  document.getElementById('model-btn').textContent = (currentModelConfig.name || modelId) + ' ▾';
+  document.getElementById('header-sub').textContent =
+    'AI Asszisztens · ' + (api === 'google' ? 'Google' : 'OpenAI-compat') + ' · ' + modelId.split('/').pop();
+
+  saveToStorage();
+}
+
+function toggleDropdown(e) {
+  if (e) { e.preventDefault(); e.stopPropagation(); }
+  const dropdown = document.getElementById('model-dropdown');
+  dropdown.classList.toggle('open');
+}
+
+function closeDropdown() {
+  document.getElementById('model-dropdown').classList.remove('open');
+}
+
+// ════════════════════════════════════════════════════════
+// STORAGE
+// ════════════════════════════════════════════════════════
+function saveToStorage() {
+  try {
+    setAutosaveDot('saving');
+    localStorage.setItem(HIST_KEY, JSON.stringify(chatHistory.slice(-80)));
+    if (currentModelConfig) localStorage.setItem(MODEL_KEY, JSON.stringify(currentModelConfig));
+    const sys = document.getElementById('sys-input')?.value;
+    if (sys) localStorage.setItem(SYS_KEY, sys);
+    setTimeout(() => setAutosaveDot('saved'), 300);
+  } catch(e) {
+    setAutosaveDot('');
+  }
+}
+
+function setAutosaveDot(state) {
+  const dot = document.getElementById('autosave-dot');
+  if (!dot) return;
+  dot.className = '';
+  if (state === 'saved') dot.classList.add('saved');
+  else if (state === 'saving') dot.classList.add('saving');
+}
+
+function scheduleAutosave() {
+  clearTimeout(autosaveTimer);
+  autosaveTimer = setTimeout(saveToStorage, 800);
+}
+
+function loadFromStorage() {
+  try {
+    const h = localStorage.getItem(HIST_KEY);
+    if (h) chatHistory = JSON.parse(h);
+    const m = localStorage.getItem(MODEL_KEY);
+    if (m) {
+      try {
+        const cfg = JSON.parse(m);
+        const found = document.querySelector(`.model-opt[data-model="${cfg.id}"]`);
+        if (found) selectModel(found);
+        else {
+          currentModelConfig = cfg;
+          document.getElementById('model-btn').textContent = (cfg.name || cfg.id) + ' ▾';
+        }
+      } catch {
+        const found = document.querySelector(`.model-opt[data-model="${m}"]`);
+        if (found) selectModel(found);
+      }
+    }
+  } catch(e) {}
+}
+
+function exportJSON() {
+  const data = {
+    version: 2,
+    exportedAt: new Date().toISOString(),
+    model: currentModelConfig,
+    systemPrompt: localStorage.getItem(SYS_KEY) || '',
+    history: chatHistory
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const url  = URL.createObjectURL(blob);
+  const a    = document.createElement('a');
+  const date = new Date().toISOString().slice(0, 10);
+  a.href = url;
+  a.download = `mira_chat_${date}.json`;
+  a.click();
+  URL.revokeObjectURL(url);
+  setStatus('✦ Exportálva', '');
+}
+
+function importJSON(file) {
+  const reader = new FileReader();
+  reader.onload = ev => {
+    try {
+      const data = JSON.parse(ev.target.result);
+      if (!data.history || !Array.isArray(data.history)) throw new Error('Érvénytelen formátum');
+      if (!confirm(`Betöltöd a(z) "${file.name}" fájlt? (${data.history.length} üzenet)\nA jelenlegi cset felülíródik.`)) return;
+      chatHistory = data.history;
+      if (data.systemPrompt) {
+        localStorage.setItem(SYS_KEY, data.systemPrompt);
+        document.getElementById('sys-input').value = data.systemPrompt;
+      }
+      saveToStorage();
+      renderAll();
+      setStatus('✦ Importálva: ' + data.history.length + ' üzenet', '');
+    } catch(err) {
+      alert('Import hiba: ' + err.message);
+    }
+  };
+  reader.readAsText(file);
+}
+
+function toggleSysPanel() {
+  document.getElementById('sys-panel').classList.toggle('open');
+}
+
+function autoResize(el) {
+  el.style.height = '36px';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMessage(); }
+}
+
+function escapeHtml(s) {
+  return (s || '').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+}
+
+function setStatus(msg, cls = '') {
+  const el = document.getElementById('save-status');
+  el.textContent = '';
+  el.className = cls;
+  if (!msg) return;
+  if (cls === 'err') {
+    const span = document.createElement('span');
+    span.textContent = msg.slice(0, 60) + (msg.length > 60 ? '…' : '');
+    el.appendChild(span);
+    const panel = document.getElementById('error-panel');
+    const errText = document.getElementById('error-text');
+    if (panel && errText) { errText.textContent = msg; panel.classList.add('visible'); }
+  } else {
+    el.textContent = msg;
+    setTimeout(() => { el.textContent = ''; el.className = ''; }, 2500);
+  }
+}
+
+function updateTokenCount() {
+  const total = chatHistory.reduce((s, m) => s + (m.content?.length || 0), 0);
+  document.getElementById('token-count').textContent = total > 0 ? `~${Math.round(total/4)} tok` : '';
+}
+
+function saveApiKey() {
+  const val = document.getElementById('api-key-inp').value.trim();
+  if (!val) return;
+  localStorage.setItem(API_KEY_KEY, val);
+  document.getElementById('api-banner').classList.add('hidden');
+  setStatus('✦ Kulcs mentve', '');
+}
+
+function saveTavilyKey() {
+  const val = document.getElementById('tavily-key-inp').value.trim();
+  if (!val) return;
+  localStorage.setItem(TAVILY_KEY, val);
+  document.getElementById('tavily-banner').classList.add('hidden');
+  setStatus('✦ Tavily kulcs mentve', '');
+}
+
+function getApiKey() {
+  if (!currentModelConfig) return localStorage.getItem(API_KEY_KEY);
+  const keyId = currentModelConfig.keyId;
+  if (keyId && keyId !== 'google') {
+    const custom = localStorage.getItem('mira_key_' + keyId);
+    if (custom) return custom;
+  }
+  return localStorage.getItem(API_KEY_KEY);
+}
+
+function clearChat() {
+  if (!confirm('Törlöd a teljes beszélgetést?')) return;
+  chatHistory = [];
+  saveToStorage();
+  renderAll();
+}
+
+function handleImageSelect(e) {
+  const file = e.target.files[0];
+  if (!file) return;
+  const reader = new FileReader();
+  reader.onload = (ev) => {
+    const dataUrl = ev.target.result;
+    pendingImageMime = file.type || 'image/jpeg';
+    pendingImageB64  = dataUrl.split(',')[1];
+    document.getElementById('img-preview').src = dataUrl;
+    document.getElementById('img-preview-row').style.display = 'flex';
+  };
+  reader.readAsDataURL(file);
+  e.target.value = '';
+}
+
+function clearImage() {
+  pendingImageB64  = null;
+  pendingImageMime = null;
+  document.getElementById('img-preview-row').style.display = 'none';
+  document.getElementById('img-preview').src = '';
+}
+
+async function fetchWebContext(query) {
+  const apiKey = localStorage.getItem(TAVILY_KEY);
+  if (!apiKey) {
+    document.getElementById('tavily-banner').classList.remove('hidden');
+    throw new Error('Tavily API kulcs hiányzik – add meg a zöld sávban!');
+  }
+  const resp = await fetch('https://api.tavily.com/search', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ api_key: apiKey, query, search_depth: 'basic', max_results: 3, include_answer: true })
+  });
+  if (!resp.ok) {
+    const err = await resp.json().catch(() => ({}));
+    throw new Error(err?.detail || `Tavily hiba: HTTP ${resp.status}`);
+  }
+  const data = await resp.json();
+  let context = '';
+  if (data.answer) context += `Összefoglaló: ${data.answer}\n\n`;
+  if (data.results?.length) {
+    context += 'Források:\n';
+    data.results.slice(0, 3).forEach((r, i) => {
+      context += `[${i+1}] ${r.title} (${r.url})\n${r.content?.slice(0, 300)}...\n\n`;
+    });
+  }
+  return context;
+}
+
+const tts = window.speechSynthesis;
+let ttsUtterance = null;
+
+function ttsSpeak(text) {
+  if (!tts) return;
+  ttsStop();
+  const clean = text
+    .replace(/```[\s\S]*?```/g, 'kódrészlet.')
+    .replace(/`[^`]+`/g, '')
+    .replace(/\*\*([^*]+)\*\*/g, '$1')
+    .replace(/\*([^*]+)\*/g, '$1')
+    .replace(/#{1,6}\s/g, '')
+    .replace(/[❌⏳✓✦]/g, '')
+    .trim();
+  ttsUtterance = new SpeechSynthesisUtterance(clean);
+  const voices  = tts.getVoices();
+  const huVoice = voices.find(v => v.lang.startsWith('hu'));
+  if (huVoice) ttsUtterance.voice = huVoice;
+  ttsUtterance.lang = huVoice ? 'hu-HU' : 'en-US';
+  ttsUtterance.rate = 1.0;
+  const stopBtn = document.getElementById('tts-stop-btn');
+  if (stopBtn) stopBtn.style.display = 'flex';
+  ttsUtterance.onend  = () => { if (stopBtn) stopBtn.style.display = 'none'; };
+  ttsUtterance.onerror = () => { if (stopBtn) stopBtn.style.display = 'none'; };
+  tts.speak(ttsUtterance);
+}
+
+function ttsStop() {
+  if (tts) tts.cancel();
+  const stopBtn = document.getElementById('tts-stop-btn');
+  if (stopBtn) stopBtn.style.display = 'none';
+}
+
+function showStop() { document.getElementById('runpod-stop-btn').classList.add('visible'); }
+function hideStop() { document.getElementById('runpod-stop-btn').classList.remove('visible'); }
+function abortGen() {
+  if (abortCtrl) { abortCtrl.abort(); abortCtrl = null; }
+  hideStop();
+  isGenerating = false;
+  document.getElementById('send-btn').disabled = false;
+  const last = chatHistory[chatHistory.length-1];
+  if (last && last.role === 'assistant') {
+    if (!last.content || !last.content.trim()) chatHistory.pop();
+    else last.content += '\n\n[⏹ Megszakítva]';
+  }
+  document.querySelectorAll('.bubble.ai').forEach(b => b.classList.remove('cursor'));
+  scheduleAutosave();
+  renderAll();
+}
+
+function renderAll() {
+  const chat = document.getElementById('chat');
+  const empty = document.getElementById('empty-state');
+
+  if (chatHistory.length === 0) {
+    chat.innerHTML = '';
+    chat.appendChild(empty);
+    empty.style.display = 'flex';
+    updateTokenCount();
+    return;
+  }
+  empty.style.display = 'none';
+  chat.innerHTML = '';
+
+  const showThinking = document.getElementById('show-thinking-toggle').checked;
+
+  for (const msg of chatHistory) {
+    const wrap = document.createElement('div');
+    wrap.className = 'msg-wrap';
+
+    const meta = document.createElement('div');
+    meta.className = 'msg-meta';
+    const roleEl = document.createElement('span');
+    roleEl.className = 'role ' + (msg.role === 'user' ? 'user' : 'ai');
+    roleEl.textContent = msg.role === 'user' ? 'TE' : 'MIRA';
+    meta.appendChild(roleEl);
+    if (msg.ts) {
+      const tsEl = document.createElement('span');
+      tsEl.className = 'msg-ts';
+      tsEl.textContent = msg.ts;
+      meta.appendChild(tsEl);
+    }
+    wrap.appendChild(meta);
+
+    if (msg.thinking && showThinking) {
+      const tb = document.createElement('div');
+      tb.className = 'thinking-block';
+      tb.innerHTML = '<div class="thinking-label">✦ Gondolkodás</div>' + escapeHtml(msg.thinking);
+      wrap.appendChild(tb);
+    }
+
+    const bubble = document.createElement('div');
+    bubble.className = 'bubble ' + (msg.role === 'user' ? 'user' : 'ai');
+
+    if (msg.role === 'user' && msg.imgB64) {
+      const imgEl = document.createElement('img');
+      imgEl.className = 'msg-image';
+      imgEl.src = `data:${msg.imgMime};base64,${msg.imgB64}`;
+      bubble.appendChild(imgEl);
+      const textNode = document.createElement('div');
+      textNode.textContent = msg.content;
+      bubble.appendChild(textNode);
+    } else {
+      bubble.textContent = msg.content;
+    }
+
+    wrap.appendChild(bubble);
+    chat.appendChild(wrap);
+  }
+
+  chat.scrollTop = chat.scrollHeight;
+  updateTokenCount();
+}
+
+async function sendMessage() {
+  if (isGenerating) return;
+  const input = document.getElementById('user-input');
+  const text  = input ? input.value.trim() : '';
+  if (!text && !pendingImageB64) { setStatus('⚠ Írj valamit!', ''); return; }
+
+  if (!currentModelConfig) {
+    setStatus('❌ Válassz modellt!', 'err'); return;
+  }
+
+  const apiKey = getApiKey();
+  if (!apiKey) {
+    setStatus('❌ Add meg az API kulcsot!', 'err');
+    const b = document.getElementById('api-banner');
+    if (b) b.classList.remove('hidden');
+    return;
+  }
+
+  setStatus('⏳ Küldés…', '');
+
+  ttsStop();
+  const imgB64 = pendingImageB64, imgMime = pendingImageMime;
+  clearImage();
+  const errPanel = document.getElementById('error-panel');
+  if (errPanel) errPanel.classList.remove('visible');
+  input.value = '';
+  input.style.height = '36px';
+
+  const ts = new Date().toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+  chatHistory.push({ role: 'user', content: text || '(kép)', ts, imgB64, imgMime });
+
+  const aiMsg = { role: 'assistant', content: '', ts };
+  chatHistory.push(aiMsg);
+  renderAll();
+
+  const bubbles = document.querySelectorAll('.bubble.ai');
+  lastBubble = bubbles[bubbles.length - 1];
+  if (lastBubble) lastBubble.classList.add('cursor');
+
+  isGenerating = true;
+  const sendBtnEl = document.getElementById('send-btn');
+  if (sendBtnEl) sendBtnEl.disabled = true;
+  abortCtrl = new AbortController();
+  showStop();
+
+  let lastBubble = null;
+
+  try {
+    const now      = new Date();
+    const dateStr  = now.toLocaleDateString('hu-HU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' });
+    const timeStr  = now.toLocaleTimeString('hu-HU', { hour: '2-digit', minute: '2-digit' });
+    const sysBase  = localStorage.getItem(SYS_KEY) || 'Te vagy Mira, egy intelligens, bölcs asszisztens. Ha a felhasználó magyarul ír, magyarul válaszolj.';
+    let systemInstruction = sysBase + `\n\n[Rendszerinfo: Ma ${dateStr}, pontos idő: ${timeStr}.]`;
+
+    const webSearchOn = document.getElementById('websearch-toggle').checked;
+    if (webSearchOn && text) {
+      if (lastBubble) lastBubble.textContent = '🔍 Webes keresés...';
+      try {
+        const searchRes = await fetchWebContext(text.slice(0, 300));
+        if (searchRes) systemInstruction += '\n\n[Aktuális webes keresés eredménye – használd fel a válaszodban, hivatkozz a forrásokra:]\n' + searchRes;
+        if (lastBubble) lastBubble.textContent = '';
+      } catch(e) {
+        if (lastBubble) lastBubble.textContent = '';
+        setStatus('⚠ Keresés sikertelen: ' + e.message, 'err');
+      }
+    }
+
+    const thinkingOn = document.getElementById('thinking-toggle').checked;
+    const api        = currentModelConfig.api;
+
+    if (api === 'google') {
+      const rawHistory = chatHistory.slice(0, -2);
+      const contents   = [];
+      for (const m of rawHistory) {
+        if (!m.content && !m.imgB64) continue;
+        const role  = m.role === 'user' ? 'user' : 'model';
+        const parts = [];
+        if (m.imgB64) parts.push({ inlineData: { mimeType: m.imgMime, data: m.imgB64 } });
+        if (m.content?.trim()) parts.push({ text: m.content });
+        if (parts.length === 0) continue;
+        if (contents.length > 0 && contents[contents.length - 1].role === role) {
+          contents[contents.length - 1].parts.push(...parts);
+        } else {
+          contents.push({ role, parts });
+        }
+      }
+      const userParts = [];
+      if (imgB64) userParts.push({ inlineData: { mimeType: imgMime, data: imgB64 } });
+      userParts.push({ text: text || 'Mit látsz ezen a képen?' });
+      contents.push({ role: 'user', parts: userParts });
+
+      const reqBody = {
+        system_instruction: { parts: [{ text: systemInstruction }] },
+        contents,
+        generationConfig: { maxOutputTokens: 4096 }
+      };
+      if (thinkingOn) reqBody.generationConfig.thinkingConfig = { thinkingLevel: 'HIGH' };
+      else reqBody.generationConfig.temperature = 0.7;
+
+      const modelId = currentModelConfig.id;
+      const apiUrl  = `${GOOGLE_API_BASE}${modelId}:streamGenerateContent?alt=sse&key=${apiKey}`;
+
+      const MAX_RETRIES = 3;
+      let resp;
+      for (let attempt = 1; attempt <= MAX_RETRIES; attempt++) {
+        if (attempt > 1) {
+          const w = attempt * 8;
+          if (lastBubble) lastBubble.textContent = `⏳ Újrapróbálás ${w}mp múlva… (${attempt}/${MAX_RETRIES})`;
+          await new Promise(r => setTimeout(r, w * 1000));
+        }
+        resp = await fetch(apiUrl, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(reqBody), signal: abortCtrl?.signal });
+        if (resp.ok) break;
+        const errBody = await resp.json().catch(() => ({}));
+        const detail  = errBody?.error?.message || `HTTP ${resp.status}`;
+        const isRate  = resp.status === 429 || detail.toLowerCase().includes('quota') || detail.toLowerCase().includes('rate');
+        if (!isRate || attempt === MAX_RETRIES) throw new Error(detail);
+      }
+
+      const reader  = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '', fullContent = '', fullThinking = '', done = false;
+      while (!done) {
+        const { done: rdone, value } = await reader.read();
+        done = rdone;
+        if (value) buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw || raw === '[DONE]') continue;
+          let chunk;
+          try { chunk = JSON.parse(raw); } catch { continue; }
+          if (chunk.error) throw new Error(chunk.error.message || 'Stream hiba');
+          const candidate = chunk.candidates?.[0];
+          if (!candidate) continue;
+          const parts = candidate.content?.parts || [];
+          for (const part of parts) {
+            if (part.thought) fullThinking += part.text || '';
+            else if (part.text) {
+              fullContent += part.text;
+              aiMsg.content = fullContent;
+              try { renderAll(); } catch(e) {}
+            }
+          }
+        }
+        const chatEl = document.getElementById('chat');
+        if (chatEl) chatEl.scrollTop = chatEl.scrollHeight;
+      }
+      if (fullThinking) aiMsg.thinking = fullThinking;
+      aiMsg.content = fullContent || '(Üres válasz)';
+
+    } else {
+      const messages = [];
+      const rawHistory = chatHistory.slice(0, -2);
+      for (const m of rawHistory) {
+        if (!m.content && !m.imgB64) continue;
+        if (m.content) messages.push({ role: m.role === 'user' ? 'user' : 'assistant', content: m.content });
+      }
+      if (imgB64) {
+        messages.push({ role: 'user', content: [
+          { type: 'image_url', image_url: { url: `data:${imgMime};base64,${imgB64}` } },
+          { type: 'text', text: text || 'Mit látsz ezen a képen?' }
+        ]});
+      } else {
+        messages.push({ role: 'user', content: text });
+      }
+
+      const baseUrl = currentModelConfig.url.replace(/\/$/, '');
+      const apiUrl  = baseUrl + '/v1/chat/completions';
+      const body    = {
+        model: currentModelConfig.id,
+        messages: [{ role: 'system', content: systemInstruction }, ...messages],
+        max_tokens: 4096,
+        temperature: 0.7,
+        stream: true
+      };
+
+      const resp = await fetch(apiUrl, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${apiKey}` },
+        body: JSON.stringify(body),
+        signal: abortCtrl?.signal
+      });
+      if (!resp.ok) {
+        const errBody = await resp.json().catch(() => ({}));
+        throw new Error(errBody?.error?.message || `HTTP ${resp.status}`);
+      }
+
+      const reader  = resp.body.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '', fullContent = '', done = false;
+      while (!done) {
+        const { done: rdone, value } = await reader.read();
+        done = rdone;
+        if (value) buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split('\n');
+        buffer = lines.pop();
+        for (const line of lines) {
+          if (!line.startsWith('data: ')) continue;
+          const raw = line.slice(6).trim();
+          if (!raw || raw === '[DONE]') continue;
+          let chunk;
+          try { chunk = JSON.parse(raw); } catch { continue; }
+          const delta = chunk.choices?.[0]?.delta?.content;
+          if (delta) {
+            fullContent += delta;
+            aiMsg.content = fullContent;
+            try { renderAll(); } catch(e) {}
+          }
+        }
+        const chatEl2 = document.getElementById('chat');
+        if (chatEl2) chatEl2.scrollTop = chatEl2.scrollHeight;
+      }
+      aiMsg.content = fullContent || '(Üres válasz)';
+    }
+
+    scheduleAutosave();
+
+    if (document.getElementById('tts-toggle').checked && aiMsg.content) {
+      ttsSpeak(aiMsg.content);
+    }
+
+  } catch (err) {
+    if (err.name !== 'AbortError') {
+      const errMsg = err.message || 'Ismeretlen hiba';
+      const idx = chatHistory.indexOf(aiMsg);
+      if (idx !== -1) chatHistory.splice(idx, 1);
+      setStatus('❌ ' + errMsg, 'err');
+      console.error('Mira error:', errMsg);
+    }
+  } finally {
+    isGenerating = false;
+    abortCtrl = null;
+    const sendBtn = document.getElementById('send-btn');
+    if (sendBtn) sendBtn.disabled = false;
+    try { hideStop(); } catch(e) {}
+    try { if (lastBubble) lastBubble.classList.remove('cursor'); } catch(e) {}
+    try { renderAll(); } catch(e) {}
+  }
+}
+
+// ════════════════════════════════════════════════════════
+// ESEMÉNYKEZELŐK INICIALIZÁLÁSA
+// ════════════════════════════════════════════════════════
+function safeOn(id, ev, fn, opts) {
+  const el = document.getElementById(id);
+  if (el) el.addEventListener(ev, fn, opts || undefined);
+}
+
+function initEvents() {
+  try {
+  // Modell menü
+  safeOn('model-btn', 'click', toggleDropdown);
+  safeOn('model-btn', 'touchstart', toggleDropdown, { passive: false });
+  
+  // Google modellek
+  document.querySelectorAll('#model-dropdown .model-opt[data-api="google"]').forEach(el => {
+    el.addEventListener('click', () => { selectModel(el); closeDropdown(); });
+    el.addEventListener('touchstart', (e) => { e.preventDefault(); selectModel(el); closeDropdown(); }, { passive: false });
+  });
+  
+  // Egyedi modell hozzáadása
+  safeOn('add-model-btn', 'click', openAddModelModal);
+  safeOn('add-model-btn', 'touchstart', openAddModelModal, { passive: false });
+  
+  // Rendszer prompt ikon
+  safeOn('debug-btn', 'click', function() {
+    var sendBtn = document.getElementById('send-btn');
+    var key = getApiKey();
+    var msg = 'send-btn: ' + (sendBtn ? 'IGEN' : 'NEM') + '\n' +
+              'disabled: ' + (sendBtn ? sendBtn.disabled : 'NA') + '\n' +
+              'isGenerating: ' + isGenerating + '\n' +
+              'modell: ' + (currentModelConfig ? currentModelConfig.id : 'NINCS') + '\n' +
+              'API: ' + (key ? 'VAN(' + key.slice(0,8) + ')' : 'NINCS');
+    alert(msg);
+  });
+  safeOn('test-btn', 'click', async function() {
+    var key = getApiKey();
+    if (!key) { alert('Nincs API kulcs!'); return; }
+    alert('API hivas indul...');
+    try {
+      var models = ['gemini-2.0-flash','gemini-1.5-flash','gemini-1.5-pro'];
+      var results = [];
+      for (var i = 0; i < models.length; i++) {
+        try {
+          var r = await fetch('https://generativelanguage.googleapis.com/v1beta/models/' + models[i] + ':generateContent?key=' + key, {
+            method: 'POST',
+            headers: {'Content-Type': 'application/json'},
+            body: JSON.stringify({contents:[{role:'user',parts:[{text:'Mondj egy szot.'}]}]})
+          });
+          var d = await r.json();
+          if (d.error) {
+            results.push(models[i] + ': HIBA - ' + d.error.message.slice(0,40));
+          } else {
+            results.push(models[i] + ': OK');
+          }
+        } catch(e) {
+          results.push(models[i] + ': FETCH HIBA');
+        }
+      }
+      alert(results.join('\n'));
+    } catch(e) {
+      alert('FETCH HIBA: ' + e.message);
+    }
+  });
+  safeOn('apikey-show-btn', 'click', () => {
+    localStorage.removeItem(API_KEY_KEY);
+    const banner = document.getElementById('api-banner');
+    if (banner) {
+      banner.classList.remove('hidden');
+      const inp = document.getElementById('api-key-inp');
+      if (inp) { inp.value = ''; setTimeout(() => inp.focus(), 100); }
+    }
+  });
+  safeOn('sys-toggle-btn', 'click', toggleSysPanel);
+  safeOn('sys-toggle-btn', 'touchstart', toggleSysPanel, { passive: false });
+  
+  // Modal
+  safeOn('modal-cancel', 'click', closeAddModelModal);
+  safeOn('modal-save', 'click', saveCustomModel);
+  safeOn('m-api-type', 'change', onApiTypeChange);
+  
+  // Modal overlay
+  safeOn('modal-overlay', 'click', (e) => {
+    if (e.target === document.getElementById('modal-overlay')) closeAddModelModal();
+  });
+  
+  // Dropdown bezárás külső klikkre
+  document.addEventListener('click', (e) => {
+    if (!e.target.closest('.model-wrap') && !e.target.closest('#model-dropdown')) closeDropdown();
+  });
+  
+  // Export/Import
+  safeOn('export-btn', 'click', exportJSON);
+  safeOn('import-btn', 'click', () => { const el = document.getElementById('import-input'); if (el) el.click(); });
+  safeOn('import-input', 'change', (e) => {
+    if (e.target.files[0]) importJSON(e.target.files[0]);
+    e.target.value = '';
+  });
+  
+  // API kulcs
+  safeOn('save-apikey-btn', 'click', saveApiKey);
+  safeOn('save-tavily-btn', 'click', saveTavilyKey);
+  safeOn('close-tavily-btn', 'click', () => {
+    document.getElementById('tavily-banner').classList.add('hidden');
+  });
+  safeOn('tavily-toggle-btn', 'click', () => {
+    document.getElementById('tavily-banner').classList.toggle('hidden');
+  });
+  
+  // Cset műveletek
+  safeOn('send-btn', 'click', sendMessage);
+  safeOn('clear-chat-btn', 'click', clearChat);
+  safeOn('tts-stop-btn', 'click', ttsStop);
+  safeOn('runpod-stop-btn', 'click', abortGen);
+  
+  // Kép csatolás
+  safeOn('attach-img-btn', 'click', () => { const el = document.getElementById('img-input'); if (el) el.click(); });
+  safeOn('img-input', 'change', handleImageSelect);
+  safeOn('clear-img-btn', 'click', clearImage);
+  
+  // Hiba panel gombok
+  safeOn('copy-error-btn', 'click', () => {
+    const t = document.getElementById('error-text');
+    if (t) navigator.clipboard.writeText(t.textContent);
+  });
+  safeOn('close-error-btn', 'click', () => {
+    const p = document.getElementById('error-panel');
+    if (p) p.classList.remove('visible');
+  });
+  
+  // User input
+  safeOn('user-input', 'input', (e) => autoResize(e.target));
+  safeOn('user-input', 'keydown', handleKey);
+  
+  // Thinking toggle render frissítés
+  safeOn('show-thinking-toggle', 'change', () => renderAll());
+  
+  // System prompt autosave
+  safeOn('sys-input', 'input', () => {
+    localStorage.setItem(SYS_KEY, document.getElementById('sys-input').value);
+  });
+  } catch(e) { console.error('initEvents hiba:', e); }
+}
+
+// ════════════════════════════════════════════════════════
+// INIT
+// ════════════════════════════════════════════════════════
+(function init() {
+  renderCustomModels();
+  loadFromStorage();
+  initEvents();
+
+  if (!currentModelConfig) {
+    const first = document.querySelector('.model-opt[data-api="google"]');
+    if (first) selectModel(first);
+  }
+
+  const apiKey = localStorage.getItem(API_KEY_KEY);
+  if (apiKey) document.getElementById('api-banner').classList.add('hidden');
+
+  const tavilyKey = localStorage.getItem(TAVILY_KEY);
+  if (!tavilyKey) document.getElementById('tavily-banner').classList.remove('hidden');
+  else document.getElementById('tavily-banner').classList.add('hidden');
+
+  const sys = localStorage.getItem(SYS_KEY);
+  if (sys) document.getElementById('sys-input').value = sys;
+
+  renderAll();
+  setAutosaveDot('saved');
+})();
+</script>
+</body>
+</html>
